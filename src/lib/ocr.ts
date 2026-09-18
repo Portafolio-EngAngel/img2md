@@ -1,6 +1,5 @@
-import path from 'path'
 import { createWorker, Worker, Line as TessLine, Word as TessWord } from 'tesseract.js'
-import { OCR_WORKER_POOL_SIZE, DEFAULT_LANGUAGE, LANG_TO_TESSDATA } from '@/constants'
+import { TESSDATA_PATH, DEFAULT_LANGUAGE, LANG_TO_TESSDATA } from '@/constants'
 import type { OcrResult, OcrWord, OcrLine } from '@/types'
 
 export class OcrError extends Error {
@@ -10,36 +9,9 @@ export class OcrError extends Error {
   }
 }
 
-// Singleton pool — reutilizado entre requests en el mismo proceso
-let pool: Worker[] = []
-let poolLanguage = ''
-let poolIndex = 0
-
-const tessDataPath = path.join(process.cwd(), 'public', 'tessdata')
-
-async function getWorker(language: string): Promise<Worker> {
-  // Mapear el idioma lógico al combo real de tessdata
-  const tessLang = LANG_TO_TESSDATA[language as keyof typeof LANG_TO_TESSDATA] ?? language
-
-  if (pool.length === 0 || poolLanguage !== tessLang) {
-    await Promise.all(pool.map(w => w.terminate().catch(() => null)))
-    pool = []
-    poolIndex = 0
-    poolLanguage = tessLang
-
-    for (let i = 0; i < OCR_WORKER_POOL_SIZE; i++) {
-      const worker = await createWorker(tessLang, 1, {
-        langPath: tessDataPath,
-        cacheMethod: 'none',
-        gzip: false,
-      })
-      pool.push(worker)
-    }
-  }
-
-  const worker = pool[poolIndex % pool.length]
-  poolIndex++
-  return worker
+export interface OcrProgress {
+  status: string
+  progress: number
 }
 
 function mapWord(w: TessWord): OcrWord {
@@ -58,21 +30,30 @@ function mapLine(l: TessLine): OcrLine {
   }
 }
 
+// Corre enteramente en el navegador vía Web Worker + WASM — sin límite de tiempo de función
+// serverless y sin que la imagen salga nunca del dispositivo del usuario.
 export async function runOcr(
-  imageBuffer: Buffer,
+  image: HTMLCanvasElement,
   language: string = DEFAULT_LANGUAGE,
+  onProgress?: (p: OcrProgress) => void,
 ): Promise<OcrResult> {
+  const tessLang = LANG_TO_TESSDATA[language as keyof typeof LANG_TO_TESSDATA] ?? language
+
   let worker: Worker
   try {
-    worker = await getWorker(language)
+    worker = await createWorker(tessLang, 1, {
+      langPath: TESSDATA_PATH,
+      cacheMethod: 'none',
+      gzip: false,
+      logger: onProgress,
+    })
   } catch (err) {
-    throw new OcrError('Error al inicializar worker OCR', err)
+    throw new OcrError('Error al inicializar el motor OCR', err)
   }
 
   try {
-    const { data } = await worker.recognize(imageBuffer, { rotateAuto: true }, { blocks: true })
+    const { data } = await worker.recognize(image, { rotateAuto: true }, { blocks: true })
 
-    // Extraer lines y words del árbol blocks → paragraphs → lines → words
     const lines: OcrLine[] = []
     const words: OcrWord[] = []
 
@@ -90,5 +71,7 @@ export async function runOcr(
     return { text: data.text, words, lines }
   } catch (err) {
     throw new OcrError('Error durante el reconocimiento OCR', err)
+  } finally {
+    await worker.terminate().catch(() => null)
   }
 }

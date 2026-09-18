@@ -53,7 +53,7 @@ export function ConverterClient() {
     return () => document.removeEventListener('paste', handlePaste)
   }, [handleFile]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isProcessing = state.status === 'uploading' || state.status === 'processing'
+  const isProcessing = state.status === 'processing'
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">

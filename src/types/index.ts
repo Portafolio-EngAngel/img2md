@@ -1,12 +1,7 @@
 import type { SupportedLanguage } from '@/constants'
 export type { SupportedLanguage }
 
-// — API request / response —
-
-export interface ConvertRequest {
-  file: File
-  language?: SupportedLanguage
-}
+// — Conversion result —
 
 export interface ConvertStats {
   words: number
@@ -21,7 +16,7 @@ export interface ConvertResponse {
 
 export interface ApiError {
   error: string
-  code: 'FILE_TOO_LARGE' | 'UNSUPPORTED_TYPE' | 'OCR_FAILED' | 'PARSE_FAILED' | 'TIMEOUT'
+  code: 'FILE_TOO_LARGE' | 'UNSUPPORTED_TYPE' | 'OCR_FAILED' | 'PARSE_FAILED'
 }
 
 // — OCR internal types —
@@ -62,7 +57,7 @@ export type ParsedBlock =
 
 // — Client state types —
 
-export type ConversionStatus = 'idle' | 'uploading' | 'processing' | 'done' | 'error'
+export type ConversionStatus = 'idle' | 'processing' | 'done' | 'error'
 
 export interface ConversionState {
   status: ConversionStatus

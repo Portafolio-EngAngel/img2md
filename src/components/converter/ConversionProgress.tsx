@@ -8,7 +8,6 @@ interface ConversionProgressProps {
 }
 
 const STATUS_CONFIG: Partial<Record<ConversionStatus, { label: string; color: string }>> = {
-  uploading: { label: 'Enviando imagen…', color: 'bg-primary/70' },
   processing: { label: 'Ejecutando OCR…', color: 'bg-primary' },
   done: { label: 'Conversión completada', color: 'bg-primary' },
   error: { label: 'Error en la conversión', color: 'bg-destructive' },
